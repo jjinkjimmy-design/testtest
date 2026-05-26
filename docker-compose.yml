@@ -1,0 +1,20 @@
+services:
+  vault:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - vault_data:/data
+      - vault_uploads:/uploads
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/auth/check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  vault_data:
+  vault_uploads:

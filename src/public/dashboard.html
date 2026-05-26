@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vault — Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/dashboard.css">
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-icon">🔐</div>
+    <div class="brand-name">Vault</div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a href="#" class="nav-item active" data-view="files">
+      <span class="nav-icon">📁</span> All Files
+    </a>
+    <a href="#" class="nav-item" id="uploadBtn">
+      <span class="nav-icon">⬆</span> Upload File
+    </a>
+  </nav>
+
+  <div class="sidebar-stats" id="statsArea">
+    <div class="stat-row">
+      <span class="stat-label">Total Files</span>
+      <span class="stat-val" id="statTotal">—</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Total Size</span>
+      <span class="stat-val" id="statSize">—</span>
+    </div>
+  </div>
+
+  <div class="sidebar-bottom">
+    <button class="btn-logout" id="logoutBtn">
+      <span>⎋</span> Sign Out
+    </button>
+  </div>
+</aside>
+
+<!-- Main content -->
+<main class="main">
+  <!-- Header -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <h1 class="page-title" id="pageTitle">All Files</h1>
+      <div class="breadcrumb">vault / files</div>
+    </div>
+    <div class="topbar-right">
+      <div class="search-wrap">
+        <input type="text" id="searchInput" class="search-input" placeholder="Search files…">
+      </div>
+      <button class="btn-primary" id="uploadTrigger">
+        <span>+</span> Upload
+      </button>
+    </div>
+  </header>
+
+  <!-- File list -->
+  <div class="content" id="filesView">
+    <div class="loading-state" id="loadingState">
+      <div class="spinner-lg"></div>
+      <p>Loading files…</p>
+    </div>
+    <div class="empty-state" id="emptyState" style="display:none">
+      <div class="empty-icon">📭</div>
+      <h2>No files yet</h2>
+      <p>Upload your first file to get started</p>
+      <button class="btn-primary" id="emptyUploadBtn">Upload File</button>
+    </div>
+    <div class="file-grid" id="fileGrid"></div>
+  </div>
+</main>
+
+<!-- Upload Modal -->
+<div class="modal-overlay" id="uploadModal">
+  <div class="modal" id="uploadModalCard">
+    <div class="modal-header">
+      <div class="modal-title">Upload File</div>
+      <button class="modal-close" id="closeUpload">✕</button>
+    </div>
+
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-icon">☁</div>
+      <div class="drop-text">Drop file here or <span class="drop-link">browse</span></div>
+      <div class="drop-sub">Any file type · Up to 500 MB</div>
+      <input type="file" id="fileInput" style="display:none">
+    </div>
+
+    <div class="selected-file" id="selectedFile" style="display:none">
+      <div class="sf-icon" id="sfIcon">📄</div>
+      <div class="sf-info">
+        <div class="sf-name" id="sfName"></div>
+        <div class="sf-size" id="sfSize"></div>
+      </div>
+      <button class="sf-remove" id="sfRemove">✕</button>
+    </div>
+
+    <div class="upload-options">
+      <div class="opt-row">
+        <div class="opt-field">
+          <label>Expiry</label>
+          <select id="expiresIn">
+            <option value="never">Never</option>
+            <option value="1h">1 Hour</option>
+            <option value="6h">6 Hours</option>
+            <option value="12h">12 Hours</option>
+            <option value="24h">24 Hours</option>
+            <option value="3d">3 Days</option>
+            <option value="7d">7 Days</option>
+            <option value="30d">30 Days</option>
+          </select>
+        </div>
+        <div class="opt-field">
+          <label>Max Downloads</label>
+          <input type="number" id="maxDownloads" placeholder="Unlimited" min="1">
+        </div>
+      </div>
+      <div class="opt-field" style="margin-top:1rem">
+        <label>Note (optional)</label>
+        <input type="text" id="fileNote" placeholder="Add a note about this file…">
+      </div>
+    </div>
+
+    <div class="upload-progress" id="uploadProgress" style="display:none">
+      <div class="progress-bar-wrap">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div class="progress-text" id="progressText">Uploading…</div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-ghost" id="cancelUpload">Cancel</button>
+      <button class="btn-primary" id="confirmUpload" disabled>Upload File</button>
+    </div>
+  </div>
+</div>
+
+<!-- Share Modal -->
+<div class="modal-overlay" id="shareModal">
+  <div class="modal modal-sm" id="shareModalCard">
+    <div class="modal-header">
+      <div class="modal-title">Share Link</div>
+      <button class="modal-close" id="closeShare">✕</button>
+    </div>
+    <div class="share-url-wrap">
+      <input type="text" id="shareUrl" class="share-url-input" readonly>
+      <button class="btn-copy" id="copyBtn">Copy</button>
+    </div>
+    <div class="share-tip">Anyone with this link can download the file directly.</div>
+    <div class="modal-footer">
+      <button class="btn-ghost" id="closeShare2">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title" style="color:#ff6b6b">Delete File</div>
+      <button class="modal-close" id="closeDelete">✕</button>
+    </div>
+    <p style="color:#a0a0c0;font-size:0.9rem;margin-bottom:1.5rem;line-height:1.6">
+      This will permanently delete <strong id="deleteFileName" style="color:#e0e0f0"></strong> and revoke all share links. This cannot be undone.
+    </p>
+    <div class="modal-footer">
+      <button class="btn-ghost" id="cancelDelete">Cancel</button>
+      <button class="btn-danger" id="confirmDelete">Delete Forever</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script src="/js/dashboard.js"></script>
+</body>
+</html>
