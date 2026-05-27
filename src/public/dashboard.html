@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vault — Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <link rel="stylesheet" href="/css/dashboard.css">
 </head>
 <body>
 
-<!-- Sidebar -->
 <aside class="sidebar">
   <div class="sidebar-brand">
     <div class="brand-icon">🔐</div>
@@ -17,94 +17,128 @@
   </div>
 
   <nav class="sidebar-nav">
-    <a href="#" class="nav-item active" data-view="files">
+    <a class="nav-item active" data-view="files" data-folder="">
       <span class="nav-icon">📁</span> All Files
     </a>
-    <a href="#" class="nav-item" id="uploadBtn">
-      <span class="nav-icon">⬆</span> Upload File
+    <div class="folder-list" id="folderList"></div>
+    <button class="nav-add-folder" id="addFolderBtn">+ New Folder</button>
+    <div class="nav-divider"></div>
+    <a class="nav-item" data-view="pastes">
+      <span class="nav-icon">📋</span> Pastes
+    </a>
+    <a class="nav-item" data-view="stats">
+      <span class="nav-icon">📊</span> Analytics
     </a>
   </nav>
 
   <div class="sidebar-stats" id="statsArea">
-    <div class="stat-row">
-      <span class="stat-label">Total Files</span>
-      <span class="stat-val" id="statTotal">—</span>
-    </div>
-    <div class="stat-row">
-      <span class="stat-label">Total Size</span>
-      <span class="stat-val" id="statSize">—</span>
-    </div>
+    <div class="stat-row"><span class="stat-label">Files</span><span class="stat-val" id="statTotal">—</span></div>
+    <div class="stat-row"><span class="stat-label">Storage</span><span class="stat-val" id="statSize">—</span></div>
+    <div class="stat-row"><span class="stat-label">Pastes</span><span class="stat-val" id="statPastes">—</span></div>
   </div>
 
   <div class="sidebar-bottom">
-    <button class="btn-logout" id="logoutBtn">
-      <span>⎋</span> Sign Out
-    </button>
+    <button class="btn-logout" id="logoutBtn"><span>⎋</span> Sign Out</button>
   </div>
 </aside>
 
-<!-- Main content -->
 <main class="main">
-  <!-- Header -->
   <header class="topbar">
     <div class="topbar-left">
       <h1 class="page-title" id="pageTitle">All Files</h1>
-      <div class="breadcrumb">vault / files</div>
+      <div class="breadcrumb" id="breadcrumb">vault / files</div>
     </div>
     <div class="topbar-right">
-      <div class="search-wrap">
-        <input type="text" id="searchInput" class="search-input" placeholder="Search files…">
+      <div class="search-wrap" id="searchWrap">
+        <input type="text" id="searchInput" class="search-input" placeholder="Search…">
       </div>
-      <button class="btn-primary" id="uploadTrigger">
-        <span>+</span> Upload
-      </button>
+      <button class="btn-primary" id="primaryActionBtn">+ Upload</button>
     </div>
   </header>
 
-  <!-- File list -->
-  <div class="content" id="filesView">
-    <div class="loading-state" id="loadingState">
-      <div class="spinner-lg"></div>
-      <p>Loading files…</p>
+  <!-- Bulk toolbar -->
+  <div class="bulk-bar" id="bulkBar" style="display:none">
+    <span class="bulk-count" id="bulkCount">0 selected</span>
+    <div class="bulk-actions">
+      <button class="btn-ghost" id="bulkSelectAll">Select All</button>
+      <button class="btn-danger-sm" id="bulkDeleteBtn">🗑 Delete Selected</button>
+      <button class="btn-ghost" id="bulkCancel">Cancel</button>
     </div>
+  </div>
+
+  <!-- Files View -->
+  <div class="content" id="filesView">
+    <div class="loading-state" id="loadingState"><div class="spinner-lg"></div><p>Loading…</p></div>
     <div class="empty-state" id="emptyState" style="display:none">
       <div class="empty-icon">📭</div>
-      <h2>No files yet</h2>
+      <h2>No files here</h2>
       <p>Upload your first file to get started</p>
       <button class="btn-primary" id="emptyUploadBtn">Upload File</button>
     </div>
     <div class="file-grid" id="fileGrid"></div>
   </div>
+
+  <!-- Pastes View -->
+  <div class="content" id="pastesView" style="display:none">
+    <div class="loading-state" id="pastesLoading"><div class="spinner-lg"></div><p>Loading…</p></div>
+    <div class="empty-state" id="pastesEmpty" style="display:none">
+      <div class="empty-icon">📋</div>
+      <h2>No pastes yet</h2>
+      <p>Create a paste to share text or code snippets</p>
+      <button class="btn-primary" id="emptyPasteBtn">New Paste</button>
+    </div>
+    <div class="paste-grid" id="pasteGrid"></div>
+  </div>
+
+  <!-- Stats View -->
+  <div class="content" id="statsView" style="display:none">
+    <div class="stats-cards" id="statsCards"></div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Activity (Last 30 Days)</div>
+        <div class="chart-wrap"><canvas id="activityChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Most Downloaded Files</div>
+        <div class="chart-wrap"><canvas id="downloadsChart"></canvas></div>
+      </div>
+    </div>
+  </div>
 </main>
 
 <!-- Upload Modal -->
 <div class="modal-overlay" id="uploadModal">
-  <div class="modal" id="uploadModalCard">
+  <div class="modal">
     <div class="modal-header">
-      <div class="modal-title">Upload File</div>
+      <div class="modal-title" id="uploadModalTitle">Upload File</div>
       <button class="modal-close" id="closeUpload">✕</button>
     </div>
-
     <div class="drop-zone" id="dropZone">
       <div class="drop-icon">☁</div>
       <div class="drop-text">Drop file here or <span class="drop-link">browse</span></div>
       <div class="drop-sub">Any file type · Up to 500 MB</div>
       <input type="file" id="fileInput" style="display:none">
     </div>
-
     <div class="selected-file" id="selectedFile" style="display:none">
       <div class="sf-icon" id="sfIcon">📄</div>
-      <div class="sf-info">
-        <div class="sf-name" id="sfName"></div>
-        <div class="sf-size" id="sfSize"></div>
-      </div>
+      <div class="sf-info"><div class="sf-name" id="sfName"></div><div class="sf-size" id="sfSize"></div></div>
       <button class="sf-remove" id="sfRemove">✕</button>
     </div>
-
-    <div class="upload-options">
+    <!-- Duplicate warning -->
+    <div class="dup-warning" id="dupWarning" style="display:none">
+      <div class="dup-icon">⚠️</div>
+      <div class="dup-text">
+        <strong>Duplicate detected</strong>
+        <span id="dupFileName"></span> already exists with the same content.
+      </div>
+      <label class="dup-check"><input type="checkbox" id="allowDuplicate"> Upload anyway</label>
+    </div>
+    <div class="upload-options" id="uploadOptions">
       <div class="opt-row">
-        <div class="opt-field">
-          <label>Expiry</label>
+        <div class="opt-field"><label>Folder</label>
+          <select id="uploadFolder"><option value="">None</option></select>
+        </div>
+        <div class="opt-field"><label>Expiry</label>
           <select id="expiresIn">
             <option value="never">Never</option>
             <option value="1h">1 Hour</option>
@@ -116,24 +150,19 @@
             <option value="30d">30 Days</option>
           </select>
         </div>
-        <div class="opt-field">
-          <label>Max Downloads</label>
+        <div class="opt-field"><label>Max Downloads</label>
           <input type="number" id="maxDownloads" placeholder="Unlimited" min="1">
         </div>
       </div>
-      <div class="opt-field" style="margin-top:1rem">
+      <div class="opt-field" style="margin-top:.875rem">
         <label>Note (optional)</label>
-        <input type="text" id="fileNote" placeholder="Add a note about this file…">
+        <input type="text" id="fileNote" placeholder="Add a note…">
       </div>
     </div>
-
     <div class="upload-progress" id="uploadProgress" style="display:none">
-      <div class="progress-bar-wrap">
-        <div class="progress-bar" id="progressBar"></div>
-      </div>
+      <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
       <div class="progress-text" id="progressText">Uploading…</div>
     </div>
-
     <div class="modal-footer">
       <button class="btn-ghost" id="cancelUpload">Cancel</button>
       <button class="btn-primary" id="confirmUpload" disabled>Upload File</button>
@@ -143,32 +172,157 @@
 
 <!-- Share Modal -->
 <div class="modal-overlay" id="shareModal">
-  <div class="modal modal-sm" id="shareModalCard">
+  <div class="modal modal-sm">
     <div class="modal-header">
-      <div class="modal-title">Share Link</div>
+      <div class="modal-title">Share File</div>
       <button class="modal-close" id="closeShare">✕</button>
     </div>
     <div class="share-url-wrap">
       <input type="text" id="shareUrl" class="share-url-input" readonly>
       <button class="btn-copy" id="copyBtn">Copy</button>
     </div>
+    <div class="qr-wrap" id="qrWrap">
+      <div class="qr-loading">Generating QR…</div>
+    </div>
     <div class="share-tip">Anyone with this link can download the file directly.</div>
+    <div class="modal-footer"><button class="btn-ghost" id="closeShare2">Done</button></div>
+  </div>
+</div>
+
+<!-- Rename Modal -->
+<div class="modal-overlay" id="renameModal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">Rename File</div>
+      <button class="modal-close" id="closeRename">✕</button>
+    </div>
+    <div class="opt-field">
+      <label>New Name</label>
+      <input type="text" id="renameInput" class="text-input" placeholder="filename.ext">
+    </div>
     <div class="modal-footer">
-      <button class="btn-ghost" id="closeShare2">Done</button>
+      <button class="btn-ghost" id="cancelRename">Cancel</button>
+      <button class="btn-primary" id="confirmRename">Rename</button>
     </div>
   </div>
 </div>
 
-<!-- Delete Confirm Modal -->
-<div class="modal-overlay" id="deleteModal">
+<!-- New Version Modal -->
+<div class="modal-overlay" id="versionModal">
   <div class="modal modal-sm">
     <div class="modal-header">
-      <div class="modal-title" style="color:#ff6b6b">Delete File</div>
-      <button class="modal-close" id="closeDelete">✕</button>
+      <div class="modal-title">Upload New Version</div>
+      <button class="modal-close" id="closeVersion">✕</button>
     </div>
-    <p style="color:#a0a0c0;font-size:0.9rem;margin-bottom:1.5rem;line-height:1.6">
-      This will permanently delete <strong id="deleteFileName" style="color:#e0e0f0"></strong> and revoke all share links. This cannot be undone.
-    </p>
+    <p class="modal-desc">The share link stays the same. The old file will be replaced.</p>
+    <div class="drop-zone drop-zone-sm" id="versionDropZone">
+      <div class="drop-icon">🔄</div>
+      <div class="drop-text">Drop new version or <span class="drop-link">browse</span></div>
+      <input type="file" id="versionFileInput" style="display:none">
+    </div>
+    <div class="selected-file" id="versionSelectedFile" style="display:none">
+      <div class="sf-icon" id="vsfIcon">📄</div>
+      <div class="sf-info"><div class="sf-name" id="vsfName"></div><div class="sf-size" id="vsfSize"></div></div>
+      <button class="sf-remove" id="vsfRemove">✕</button>
+    </div>
+    <div class="upload-progress" id="versionProgress" style="display:none">
+      <div class="progress-bar-wrap"><div class="progress-bar" id="versionProgressBar"></div></div>
+      <div class="progress-text" id="versionProgressText">Uploading…</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" id="cancelVersion">Cancel</button>
+      <button class="btn-primary" id="confirmVersion" disabled>Replace File</button>
+    </div>
+  </div>
+</div>
+
+<!-- Paste Editor Modal -->
+<div class="modal-overlay" id="pasteModal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title">New Paste</div>
+      <button class="modal-close" id="closePaste">✕</button>
+    </div>
+    <div class="opt-row" style="margin-bottom:.875rem">
+      <div class="opt-field" style="flex:2">
+        <label>Title (optional)</label>
+        <input type="text" id="pasteTitle" class="text-input" placeholder="Untitled Paste">
+      </div>
+      <div class="opt-field">
+        <label>Language</label>
+        <select id="pasteLang">
+          <option value="plaintext">Plain Text</option>
+          <option value="javascript">JavaScript</option>
+          <option value="typescript">TypeScript</option>
+          <option value="python">Python</option>
+          <option value="java">Java</option>
+          <option value="c">C</option>
+          <option value="cpp">C++</option>
+          <option value="csharp">C#</option>
+          <option value="go">Go</option>
+          <option value="rust">Rust</option>
+          <option value="php">PHP</option>
+          <option value="ruby">Ruby</option>
+          <option value="swift">Swift</option>
+          <option value="kotlin">Kotlin</option>
+          <option value="bash">Bash</option>
+          <option value="sql">SQL</option>
+          <option value="html">HTML</option>
+          <option value="css">CSS</option>
+          <option value="json">JSON</option>
+          <option value="yaml">YAML</option>
+          <option value="markdown">Markdown</option>
+          <option value="xml">XML</option>
+        </select>
+      </div>
+    </div>
+    <textarea id="pasteContent" class="paste-textarea" placeholder="Paste your code or text here…" spellcheck="false"></textarea>
+    <div class="opt-row" style="margin-top:.875rem">
+      <div class="opt-field">
+        <label>Expiry</label>
+        <select id="pasteExpiry">
+          <option value="never">Never</option>
+          <option value="1h">1 Hour</option>
+          <option value="24h">24 Hours</option>
+          <option value="7d">7 Days</option>
+          <option value="30d">30 Days</option>
+        </select>
+      </div>
+      <div class="opt-field" style="display:flex;align-items:flex-end;padding-bottom:.1rem">
+        <label class="toggle-wrap">
+          <input type="checkbox" id="pasteBurn">
+          <span class="toggle-label">🔥 Burn after read</span>
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" id="cancelPaste">Cancel</button>
+      <button class="btn-primary" id="confirmPaste">Create Paste</button>
+    </div>
+  </div>
+</div>
+
+<!-- Paste Share Modal -->
+<div class="modal-overlay" id="pasteShareModal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">Paste Created</div>
+      <button class="modal-close" id="closePasteShare">✕</button>
+    </div>
+    <div class="share-url-wrap">
+      <input type="text" id="pasteShareUrl" class="share-url-input" readonly>
+      <button class="btn-copy" id="pasteCopyBtn">Copy</button>
+    </div>
+    <div class="qr-wrap" id="pasteQrWrap"><div class="qr-loading">Generating QR…</div></div>
+    <div class="modal-footer"><button class="btn-ghost" id="closePasteShare2">Done</button></div>
+  </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal modal-sm">
+    <div class="modal-header"><div class="modal-title" style="color:#ff6b6b">Delete</div><button class="modal-close" id="closeDelete">✕</button></div>
+    <p class="modal-desc">Permanently delete <strong id="deleteFileName" style="color:#e0e0f0"></strong>? This cannot be undone.</p>
     <div class="modal-footer">
       <button class="btn-ghost" id="cancelDelete">Cancel</button>
       <button class="btn-danger" id="confirmDelete">Delete Forever</button>
@@ -176,7 +330,21 @@
   </div>
 </div>
 
-<!-- Toast -->
+<!-- Add Folder Modal -->
+<div class="modal-overlay" id="folderModal">
+  <div class="modal modal-sm">
+    <div class="modal-header"><div class="modal-title">New Folder</div><button class="modal-close" id="closeFolderModal">✕</button></div>
+    <div class="opt-field">
+      <label>Folder Name</label>
+      <input type="text" id="folderNameInput" class="text-input" placeholder="My Files">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" id="cancelFolder">Cancel</button>
+      <button class="btn-primary" id="confirmFolder">Create Folder</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="/js/dashboard.js"></script>

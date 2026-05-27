@@ -1,79 +1,68 @@
-# 🔐 Vault — Secure File Sharing
+# 🔐 Vault v2 — Secure File Sharing
 
-A self-hosted file sharing app with expiring links, download limits, and a beautiful dashboard.
+A self-hosted file vault with folders, versioning, pastes, analytics, QR codes, and Discord webhooks.
 
 ---
 
-## Features
+## What's New in v2
 
-- Upload any file type (configurable size limit)
-- Generate shareable direct-download links
-- Set expiry timers (1h → 30d) or keep files forever
-- Limit max downloads per file
-- Auto-delete expired files
-- Single-user login via environment variables
-- Professional dark UI
+| Feature | Details |
+|---|---|
+| **Folders** | Organise files into collections from the sidebar |
+| **Bulk delete** | Select multiple files and delete at once |
+| **Rename files** | Rename without re-uploading |
+| **File versioning** | Upload a new version — same share link, old file replaced |
+| **Duplicate detection** | SHA-256 hash check on every upload, warns before re-uploading |
+| **Pastebin** | Create text/code pastes with syntax highlighting, burn-after-read, expiry |
+| **Analytics** | Upload/download charts (last 30 days), most-downloaded files, storage stats |
+| **QR Codes** | Auto-generated for every share link and paste |
+| **Discord Webhook** | Notified on every file download with file name, size, download count |
 
 ---
 
 ## Quick Start (Docker Compose)
 
-### 1. Clone and configure
-
 ```bash
-cp .env.example .env
-```
-
-Edit `.env`:
-```env
-VAULT_USERNAME=admin
-VAULT_PASSWORD=your-secure-password
-SESSION_SECRET=a-long-random-string
-BASE_URL=http://localhost:3000
-MAX_FILE_SIZE_MB=500
-```
-
-### 2. Run
-
-```bash
+cp .env.example .env   # fill in username, password, SESSION_SECRET
 docker compose up -d
+# → http://localhost:3000
 ```
-
-Visit `http://localhost:3000` — done.
 
 ---
 
 ## Deploy on Railway
 
-1. Push this repo to GitHub
-2. Create a new Railway project → **Deploy from GitHub**
-3. Add a **Volume** and mount it at `/data` (for the database)
-4. Add another Volume mounted at `/uploads` (for files)
-5. Set environment variables in Railway dashboard:
+1. Push repo to GitHub
+2. New project → Deploy from GitHub repo
+3. Add two Volumes: mount at `/data` and `/uploads`
+4. Set environment variables:
 
 | Variable | Value |
 |---|---|
 | `VAULT_USERNAME` | your username |
 | `VAULT_PASSWORD` | your password |
-| `SESSION_SECRET` | random string (32+ chars) |
+| `SESSION_SECRET` | long random string |
 | `BASE_URL` | `https://your-app.up.railway.app` |
 | `MAX_FILE_SIZE_MB` | `500` |
 | `DB_PATH` | `/data/vault.db` |
 | `UPLOADS_DIR` | `/uploads` |
-
-6. Deploy — Railway auto-detects the Dockerfile.
+| `DISCORD_WEBHOOK_URL` | *(optional)* Discord webhook URL |
 
 ---
 
 ## Deploy on Render
 
-1. Push this repo to GitHub
-2. New Render service → **Web Service** → connect repo
-3. Runtime: **Docker**
-4. Add a **Disk** in Render: mount path `/data` (for DB)
-   - Note: Render free tier doesn't support persistent disks for uploads. Use a paid plan or swap to S3/R2 storage.
-5. Set environment variables (same as Railway table above)
-6. Deploy
+Same env vars as Railway. Add a **Disk** mounted at `/data` for the database.
+For uploads persistence on Render you need a paid plan (disk at `/uploads`), or swap storage to S3/R2.
+
+---
+
+## Discord Webhook Setup
+
+1. Open your Discord server → channel settings → **Integrations** → **Webhooks**
+2. Create a new webhook, copy the URL
+3. Set `DISCORD_WEBHOOK_URL` in your `.env` or hosting dashboard
+4. Every file download will post a notification to that channel
 
 ---
 
@@ -83,44 +72,35 @@ Visit `http://localhost:3000` — done.
 |---|---|---|
 | `VAULT_USERNAME` | `admin` | Login username |
 | `VAULT_PASSWORD` | `changeme123` | Login password |
-| `SESSION_SECRET` | random | Cookie signing secret |
+| `SESSION_SECRET` | fallback | Cookie signing secret |
 | `BASE_URL` | `http://localhost:3000` | Used for share link generation |
 | `MAX_FILE_SIZE_MB` | `500` | Max upload size in MB |
 | `PORT` | `3000` | Server port |
 | `DB_PATH` | `/data/vault.db` | SQLite database path |
-| `UPLOADS_DIR` | `/uploads` | File storage directory |
+| `UPLOADS_DIR` | `/uploads` | File storage path |
+| `DISCORD_WEBHOOK_URL` | *(empty)* | Discord webhook for download alerts |
 
 ---
 
-## Architecture
+## Project Structure
 
 ```
-vault/
-├── src/
-│   ├── server.js          # Express app, cron jobs
-│   ├── db.js              # SQLite (better-sqlite3)
-│   ├── middleware/
-│   │   └── auth.js        # Session auth guard
-│   ├── routes/
-│   │   ├── auth.js        # POST /auth/login, /auth/logout
-│   │   ├── files.js       # GET/POST/DELETE /api/files
-│   │   └── download.js    # GET /d/:token
-│   └── public/
-│       ├── login.html
-│       ├── dashboard.html
-│       ├── css/dashboard.css
-│       └── js/dashboard.js
-├── Dockerfile
-├── docker-compose.yml
-└── .env.example
+src/
+├── server.js
+├── db.js                    # SQLite schema + all queries
+├── middleware/auth.js
+├── routes/
+│   ├── auth.js              # Login / logout
+│   ├── files.js             # Upload, rename, version, bulk delete
+│   ├── folders.js           # Folder CRUD
+│   ├── pastes.js            # Paste CRUD
+│   ├── stats.js             # Analytics data
+│   ├── qr.js                # QR code generation
+│   ├── download.js          # Public file download + Discord webhook
+│   └── pasteview.js         # Public paste view with syntax highlighting
+└── public/
+    ├── login.html
+    ├── dashboard.html
+    ├── css/dashboard.css
+    └── js/dashboard.js
 ```
-
----
-
-## Security Notes
-
-- All upload/management routes are session-protected
-- Rate limiting on login (10 attempts / 15 min)
-- Files are stored with random UUIDs, not original names
-- Share tokens are random 32-char hex strings
-- Sessions expire after 24 hours

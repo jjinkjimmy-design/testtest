@@ -1,6 +1,6 @@
 FROM node:20-alpine
 
-# Install build deps for better-sqlite3
+# Build tools for better-sqlite3 native module
 RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
@@ -10,7 +10,7 @@ RUN npm install --production
 
 COPY src/ ./src/
 
-# Create persistent directories
+# Persistent data directories
 RUN mkdir -p /data /uploads
 
 ENV NODE_ENV=production
