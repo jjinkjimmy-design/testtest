@@ -43,6 +43,15 @@
 </aside>
 
 <main class="main">
+
+  <!-- Mobile-only top bar -->
+  <div class="mobile-header">
+    <div class="mobile-brand">🔐 <span>Vault</span></div>
+    <div class="mobile-header-right">
+      <button class="mobile-action-btn" id="mobileActionBtn">+ Upload</button>
+    </div>
+  </div>
+
   <header class="topbar">
     <div class="topbar-left">
       <h1 class="page-title" id="pageTitle">All Files</h1>
@@ -80,6 +89,11 @@
 
   <!-- Pastes View -->
   <div class="content" id="pastesView" style="display:none">
+    <div class="paste-search-bar">
+      <span class="paste-search-icon">🔍</span>
+      <input type="text" id="pasteSearchInput" placeholder="Search by title or content…" autocomplete="off">
+    </div>
+    <div class="search-count" id="pasteSearchCount" style="display:none"></div>
     <div class="loading-state" id="pastesLoading"><div class="spinner-lg"></div><p>Loading…</p></div>
     <div class="empty-state" id="pastesEmpty" style="display:none">
       <div class="empty-icon">📋</div>
@@ -309,12 +323,80 @@
       <div class="modal-title">Paste Created</div>
       <button class="modal-close" id="closePasteShare">✕</button>
     </div>
+
+    <div class="share-label">Share link</div>
     <div class="share-url-wrap">
       <input type="text" id="pasteShareUrl" class="share-url-input" readonly>
       <button class="btn-copy" id="pasteCopyBtn">Copy</button>
     </div>
+
+    <div class="share-label" style="margin-top:.75rem">Raw (plain text)</div>
+    <div class="share-url-wrap">
+      <input type="text" id="pasteRawUrl" class="share-url-input" readonly>
+      <button class="btn-copy" id="pasteRawCopyBtn">Copy Raw</button>
+    </div>
+
     <div class="qr-wrap" id="pasteQrWrap"><div class="qr-loading">Generating QR…</div></div>
     <div class="modal-footer"><button class="btn-ghost" id="closePasteShare2">Done</button></div>
+  </div>
+</div>
+
+<!-- Paste Edit Modal -->
+<div class="modal-overlay" id="pasteEditModal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title">Edit Paste</div>
+      <button class="modal-close" id="closePasteEdit">✕</button>
+    </div>
+    <div class="opt-row" style="margin-bottom:.875rem">
+      <div class="opt-field" style="flex:2">
+        <label>Title (optional)</label>
+        <input type="text" id="editPasteTitle" class="text-input" placeholder="Untitled Paste">
+      </div>
+      <div class="opt-field">
+        <label>Language</label>
+        <select id="editPasteLang">
+          <option value="plaintext">Plain Text</option>
+          <option value="javascript">JavaScript</option>
+          <option value="typescript">TypeScript</option>
+          <option value="python">Python</option>
+          <option value="java">Java</option>
+          <option value="c">C</option>
+          <option value="cpp">C++</option>
+          <option value="csharp">C#</option>
+          <option value="go">Go</option>
+          <option value="rust">Rust</option>
+          <option value="php">PHP</option>
+          <option value="ruby">Ruby</option>
+          <option value="swift">Swift</option>
+          <option value="kotlin">Kotlin</option>
+          <option value="bash">Bash</option>
+          <option value="sql">SQL</option>
+          <option value="html">HTML</option>
+          <option value="css">CSS</option>
+          <option value="json">JSON</option>
+          <option value="yaml">YAML</option>
+          <option value="markdown">Markdown</option>
+          <option value="xml">XML</option>
+        </select>
+      </div>
+      <div class="opt-field">
+        <label>Expiry</label>
+        <select id="editPasteExpiry">
+          <option value="never">Never</option>
+          <option value="1h">1 Hour</option>
+          <option value="24h">24 Hours</option>
+          <option value="7d">7 Days</option>
+          <option value="30d">30 Days</option>
+        </select>
+      </div>
+    </div>
+    <textarea id="editPasteContent" class="paste-textarea" spellcheck="false"></textarea>
+    <div class="edit-paste-note">The share link stays the same. View count is preserved.</div>
+    <div class="modal-footer">
+      <button class="btn-ghost" id="cancelPasteEdit">Cancel</button>
+      <button class="btn-primary" id="confirmPasteEdit">Save Changes</button>
+    </div>
   </div>
 </div>
 
@@ -342,6 +424,37 @@
       <button class="btn-ghost" id="cancelFolder">Cancel</button>
       <button class="btn-primary" id="confirmFolder">Create Folder</button>
     </div>
+  </div>
+</div>
+
+<!-- Mobile bottom navigation -->
+<nav class="bottom-nav" id="bottomNav">
+  <button class="bottom-nav-item active" data-view="files" data-folder="">
+    <span class="bnav-icon">📁</span>
+    <span class="bnav-label">Files</span>
+  </button>
+  <button class="bottom-nav-item" data-view="pastes">
+    <span class="bnav-icon">📋</span>
+    <span class="bnav-label">Pastes</span>
+  </button>
+  <button class="bottom-nav-item bnav-fab" id="bnavUpload">
+    <span class="bnav-fab-inner">+</span>
+  </button>
+  <button class="bottom-nav-item" data-view="stats">
+    <span class="bnav-icon">📊</span>
+    <span class="bnav-label">Stats</span>
+  </button>
+  <button class="bottom-nav-item" id="bnavSearch">
+    <span class="bnav-icon">🔍</span>
+    <span class="bnav-label">Search</span>
+  </button>
+</nav>
+
+<!-- Mobile search overlay -->
+<div class="mobile-search-overlay" id="mobileSearchOverlay">
+  <div class="mobile-search-inner">
+    <input type="text" id="mobileSearchInput" class="mobile-search-input" placeholder="Search files and pastes…" autocomplete="off">
+    <button class="mobile-search-cancel" id="mobileSearchCancel">Cancel</button>
   </div>
 </div>
 

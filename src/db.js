@@ -193,6 +193,13 @@ function getPasteById(id) {
   return getDB().prepare(`SELECT * FROM pastes WHERE id = ?`).get(id);
 }
 
+function updatePaste(id, fields) {
+  return getDB().prepare(`
+    UPDATE pastes SET title=@title, content=@content, language=@language, expires_at=@expires_at
+    WHERE id=@id
+  `).run({ ...fields, id });
+}
+
 function insertPaste(paste) {
   return getDB().prepare(`
     INSERT INTO pastes (id, title, content, language, share_token, expires_at, created_at, burn_after_read)
@@ -283,6 +290,6 @@ module.exports = {
   insertFile, updateFileVersion, renameFile, updateFileSettings,
   incrementDownload, deleteFileRecord, bulkDeleteFiles, deleteExpiredFiles,
   getAllFolders, getFolderById, insertFolder, deleteFolderRecord,
-  getAllPastes, getPasteByToken, getPasteById, insertPaste, incrementPasteViews, deletePasteRecord,
+  getAllPastes, getPasteByToken, getPasteById, insertPaste, updatePaste, incrementPasteViews, deletePasteRecord,
   logDownload, logUpload, getStats
 };

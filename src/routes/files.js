@@ -5,6 +5,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const { requireAuth } = require('../middleware/auth');
+const { getBaseUrl } = require('../lib/url');
 const {
   getAllFiles, getFileById, getFileByHash, insertFile, updateFileVersion,
   renameFile, updateFileSettings, deleteFileRecord, bulkDeleteFiles, logUpload, UPLOADS_DIR
@@ -38,7 +39,7 @@ function parseDuration(str) {
 // GET all files
 router.get('/', requireAuth, (req, res) => {
   const files = getAllFiles(req.query.folder);
-  const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+  const baseUrl = getBaseUrl(req);
   res.json(files.map(f => ({
     ...f,
     shareUrl: `${baseUrl}/d/${f.share_token}`,
@@ -57,7 +58,7 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
   const duplicate = getFileByHash(hash);
   if (duplicate && req.body.allow_duplicate !== 'true') {
     fs.unlinkSync(filePath);
-    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+    const baseUrl = getBaseUrl(req);
     return res.status(409).json({
       duplicate: true,
       existing: { ...duplicate, shareUrl: `${baseUrl}/d/${duplicate.share_token}` }
@@ -90,7 +91,7 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res) => {
   insertFile(fileRecord);
   logUpload(fileRecord.id, fileRecord.original_name, fileRecord.size);
 
-  const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+  const baseUrl = getBaseUrl(req);
   res.json({ success: true, file: { ...fileRecord, shareUrl: `${baseUrl}/d/${fileRecord.share_token}` } });
 });
 

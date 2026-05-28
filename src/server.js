@@ -10,6 +10,9 @@ const PORT = process.env.PORT || 3000;
 
 initDB();
 
+// Trust reverse proxy (Render, Railway, Nginx) so X-Forwarded-Proto is respected
+app.set('trust proxy', 1);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));

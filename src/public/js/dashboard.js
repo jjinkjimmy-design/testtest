@@ -110,6 +110,8 @@ function setView(view, folderId) {
     btn.onclick = openPasteModal;
     document.getElementById('pageTitle').textContent = 'Pastes';
     document.getElementById('breadcrumb').textContent = 'vault / pastes';
+    document.getElementById('pasteSearchInput').value = '';
+    document.getElementById('pasteSearchCount').style.display = 'none';
     loadPastes();
   } else if (view === 'stats') {
     searchWrap.style.display = 'none';
@@ -258,8 +260,21 @@ document.getElementById('searchInput').addEventListener('input', e => {
   if (state.view === 'files') {
     renderFiles(q ? state.files.filter(f => f.original_name.toLowerCase().includes(q) || (f.notes||'').toLowerCase().includes(q)) : state.files);
   } else if (state.view === 'pastes') {
-    renderPastes(q ? state.pastes.filter(p => (p.title||'').toLowerCase().includes(q) || p.content.toLowerCase().includes(q)) : state.pastes);
+    // Sync with in-view search bar too
+    document.getElementById('pasteSearchInput').value = e.target.value;
+    const filtered = q ? state.pastes.filter(p => (p.title||'').toLowerCase().includes(q) || p.content.toLowerCase().includes(q)) : state.pastes;
+    renderPastes(filtered, q);
   }
+});
+
+// Dedicated paste search bar — searches title + full content with highlights
+document.getElementById('pasteSearchInput').addEventListener('input', e => {
+  const q = e.target.value.toLowerCase();
+  document.getElementById('searchInput').value = e.target.value; // keep in sync
+  const filtered = q
+    ? state.pastes.filter(p => (p.title||'').toLowerCase().includes(q) || p.content.toLowerCase().includes(q))
+    : state.pastes;
+  renderPastes(filtered, q);
 });
 
 // ── Bulk Select ──
@@ -595,8 +610,23 @@ async function loadPastes() {
   document.getElementById('statPastes').textContent = state.pastes.length;
 }
 
-function renderPastes(pastes) {
+function highlight(text, query) {
+  if (!query) return text;
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return text.replace(new RegExp(`(${escaped})`, 'gi'), '<mark class="paste-match">$1</mark>');
+}
+
+function renderPastes(pastes, query = '') {
   document.getElementById('pastesLoading').style.display = 'none';
+
+  const countEl = document.getElementById('pasteSearchCount');
+  if (query) {
+    countEl.style.display = 'block';
+    countEl.textContent = `${pastes.length} result${pastes.length !== 1 ? 's' : ''} for "${query}"`;
+  } else {
+    countEl.style.display = 'none';
+  }
+
   if (!pastes.length) {
     document.getElementById('pastesEmpty').style.display = 'flex';
     document.getElementById('pasteGrid').innerHTML = '';
@@ -604,16 +634,18 @@ function renderPastes(pastes) {
   }
   document.getElementById('pastesEmpty').style.display = 'none';
   document.getElementById('pasteGrid').innerHTML = pastes.map((p, i) => {
-    const preview = p.content.slice(0, 120).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const preview = p.content.slice(0, 160).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const titleHtml = highlight((p.title || 'Untitled Paste').replace(/&/g,'&amp;').replace(/</g,'&lt;'), query);
+    const previewHtml = highlight(preview, query);
     const lines = p.content.split('\n').length;
     const expired = p.expires_at && p.expires_at < Date.now();
     return `
     <div class="paste-card" style="animation-delay:${i*.035}s">
       <div class="paste-top">
-        <div class="paste-title">${p.title || 'Untitled Paste'}</div>
+        <div class="paste-title">${titleHtml}</div>
         <span class="paste-lang">${p.language || 'text'}</span>
       </div>
-      <div class="paste-preview">${preview}${p.content.length > 120 ? '…' : ''}</div>
+      <div class="paste-preview">${previewHtml}${p.content.length > 160 ? '…' : ''}</div>
       <div class="paste-meta">
         <span class="paste-meta-item">👁 ${p.view_count} views</span>
         <span class="paste-meta-item">📝 ${lines} lines</span>
@@ -623,6 +655,8 @@ function renderPastes(pastes) {
       <div class="paste-actions">
         <button class="action-btn" onclick="openPasteShare('${p.shareUrl}')">🔗 Share</button>
         <button class="action-btn" onclick="window.open('${p.shareUrl}','_blank')">👁 View</button>
+        <button class="action-btn" onclick="window.open('${p.shareUrl}/raw','_blank')">⬡ Raw</button>
+        <button class="action-btn" onclick="editPaste('${p.id}')">✏️ Edit</button>
         <button class="action-btn danger" onclick="promptDelete('${p.id}','${(p.title||'Untitled Paste').replace(/'/g,"\\'")}','paste')">🗑</button>
       </div>
     </div>`;
@@ -662,10 +696,71 @@ document.getElementById('confirmPaste').addEventListener('click', async () => {
   }
 });
 
+// ── Edit Paste ──
+function editPaste(id) {
+  const paste = state.pastes.find(p => p.id === id);
+  if (!paste) return;
+  state.editPasteId = id;
+
+  document.getElementById('editPasteTitle').value   = paste.title    || '';
+  document.getElementById('editPasteContent').value = paste.content  || '';
+  document.getElementById('editPasteLang').value    = paste.language || 'plaintext';
+
+  // Pick closest expiry option based on remaining time
+  const expirySelect = document.getElementById('editPasteExpiry');
+  if (!paste.expires_at) {
+    expirySelect.value = 'never';
+  } else {
+    const r = paste.expires_at - Date.now();
+    if      (r < 4 * 3600000)   expirySelect.value = '1h';
+    else if (r < 18 * 3600000)  expirySelect.value = '6h';
+    else if (r < 2 * 86400000)  expirySelect.value = '24h';
+    else if (r < 14 * 86400000) expirySelect.value = '7d';
+    else                        expirySelect.value = '30d';
+  }
+
+  document.getElementById('pasteEditModal').classList.add('open');
+  setTimeout(() => document.getElementById('editPasteContent').focus(), 60);
+}
+
+document.getElementById('closePasteEdit').addEventListener('click',  () => document.getElementById('pasteEditModal').classList.remove('open'));
+document.getElementById('cancelPasteEdit').addEventListener('click', () => document.getElementById('pasteEditModal').classList.remove('open'));
+
+document.getElementById('confirmPasteEdit').addEventListener('click', async () => {
+  if (!state.editPasteId) return;
+  const btn = document.getElementById('confirmPasteEdit');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  const res = await api(`/api/pastes/${state.editPasteId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      title:      document.getElementById('editPasteTitle').value,
+      content:    document.getElementById('editPasteContent').value,
+      language:   document.getElementById('editPasteLang').value,
+      expires_in: document.getElementById('editPasteExpiry').value
+    })
+  });
+
+  btn.disabled = false; btn.textContent = 'Save Changes';
+  if (res.success) {
+    document.getElementById('pasteEditModal').classList.remove('open');
+    // Clear search so freshly edited paste is visible
+    document.getElementById('pasteSearchInput').value = '';
+    document.getElementById('searchInput').value = '';
+    toast('Paste updated ✓', 'success');
+    loadPastes();
+  } else {
+    toast(res.error || 'Failed to save', 'error');
+  }
+});
+
 async function openPasteShare(url) {
+  const rawUrl = url + '/raw';
   document.getElementById('pasteShareUrl').value = url;
   document.getElementById('pasteCopyBtn').textContent = 'Copy';
   document.getElementById('pasteCopyBtn').className = 'btn-copy';
+  // Raw URL row
+  document.getElementById('pasteRawUrl').value = rawUrl;
   document.getElementById('pasteQrWrap').innerHTML = '<div class="qr-loading">Generating QR…</div>';
   document.getElementById('pasteShareModal').classList.add('open');
   try {
@@ -678,6 +773,15 @@ document.getElementById('pasteCopyBtn').addEventListener('click', () => {
   navigator.clipboard.writeText(document.getElementById('pasteShareUrl').value).then(() => {
     document.getElementById('pasteCopyBtn').textContent = '✓ Copied';
     document.getElementById('pasteCopyBtn').className = 'btn-copy copied';
+  });
+});
+
+document.getElementById('pasteRawCopyBtn').addEventListener('click', () => {
+  navigator.clipboard.writeText(document.getElementById('pasteRawUrl').value).then(() => {
+    const btn = document.getElementById('pasteRawCopyBtn');
+    btn.textContent = '✓ Copied';
+    btn.className = 'btn-copy copied';
+    setTimeout(() => { btn.textContent = 'Copy Raw'; btn.className = 'btn-copy'; }, 2000);
   });
 });
 ['closePasteShare','closePasteShare2'].forEach(id => document.getElementById(id).addEventListener('click', () => document.getElementById('pasteShareModal').classList.remove('open')));
@@ -752,6 +856,57 @@ document.querySelectorAll('.nav-item[data-view]').forEach(el => {
   });
 });
 
+// ── Bottom nav wiring (mobile) ──
+document.querySelectorAll('.bottom-nav-item[data-view]').forEach(el => {
+  el.addEventListener('click', () => {
+    setView(el.dataset.view, el.dataset.folder === '' ? null : (el.dataset.folder || state.activeFolderId));
+  });
+});
+
+// Keep bottom nav active state in sync with setView
+const _origSetView = setView;
+// Patch setView to also update bottom nav active item
+function syncBottomNav(view) {
+  document.querySelectorAll('.bottom-nav-item[data-view]').forEach(el => {
+    el.classList.toggle('active', el.dataset.view === view);
+  });
+}
+
+// FAB centre button = primary action (upload on files, new paste on pastes)
+document.getElementById('bnavUpload').addEventListener('click', () => {
+  if (state.view === 'pastes') openPasteModal();
+  else openUploadModal();
+});
+
+// Bottom nav search button → open mobile search overlay
+document.getElementById('bnavSearch').addEventListener('click', () => {
+  document.getElementById('mobileSearchOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('mobileSearchInput').focus(), 80);
+});
+
+// Mobile search overlay — cancel
+document.getElementById('mobileSearchCancel').addEventListener('click', () => {
+  document.getElementById('mobileSearchOverlay').classList.remove('open');
+  document.getElementById('mobileSearchInput').value = '';
+  // Clear any active search
+  document.getElementById('searchInput').value = '';
+  if (state.view === 'files') renderFiles(state.files);
+  if (state.view === 'pastes') renderPastes(state.pastes);
+});
+
+// Mobile search overlay — input mirrors the topbar search
+document.getElementById('mobileSearchInput').addEventListener('input', e => {
+  const q = e.target.value;
+  document.getElementById('searchInput').value = q;
+  // Trigger the topbar search handler
+  document.getElementById('searchInput').dispatchEvent(new Event('input'));
+});
+
+// Mobile action button in header mirrors primaryActionBtn
+document.getElementById('mobileActionBtn').addEventListener('click', () => {
+  document.getElementById('primaryActionBtn').click();
+});
+
 // ── Modal backdrop close ──
 document.querySelectorAll('.modal-overlay').forEach(o => {
   o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
@@ -765,6 +920,17 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
 
 // ── Primary action button default ──
 document.getElementById('primaryActionBtn').onclick = openUploadModal;
+
+// ── Sync bottom nav on every view change ──
+// Patch setView to call syncBottomNav after each navigation
+const _setViewOrig = setView;
+setView = function(view, folderId) {
+  _setViewOrig(view, folderId);
+  syncBottomNav(view);
+  // Update mobile header action button label
+  const mab = document.getElementById('mobileActionBtn');
+  if (mab) mab.textContent = view === 'pastes' ? '+ Paste' : '+ Upload';
+};
 
 // ── Init ──
 async function init() {

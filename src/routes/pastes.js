@@ -1,7 +1,8 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { requireAuth } = require('../middleware/auth');
-const { getAllPastes, getPasteById, insertPaste, deletePasteRecord } = require('../db');
+const { getBaseUrl } = require('../lib/url');
+const { getAllPastes, getPasteById, insertPaste, updatePaste, deletePasteRecord } = require('../db');
 
 const router = express.Router();
 
@@ -12,8 +13,12 @@ function parseDuration(str) {
 
 router.get('/', requireAuth, (req, res) => {
   const pastes = getAllPastes();
-  const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
-  res.json(pastes.map(p => ({ ...p, shareUrl: `${baseUrl}/p/${p.share_token}` })));
+  const baseUrl = getBaseUrl(req);
+  res.json(pastes.map(p => ({
+    ...p,
+    shareUrl: `${baseUrl}/p/${p.share_token}`,
+    rawUrl:   `${baseUrl}/p/${p.share_token}/raw`
+  })));
 });
 
 router.post('/', requireAuth, (req, res) => {
@@ -38,8 +43,42 @@ router.post('/', requireAuth, (req, res) => {
   };
 
   insertPaste(paste);
-  const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
-  res.json({ success: true, paste: { ...paste, shareUrl: `${baseUrl}/p/${paste.share_token}` } });
+  const baseUrl = getBaseUrl(req);
+  res.json({
+    success: true,
+    paste: {
+      ...paste,
+      shareUrl: `${baseUrl}/p/${paste.share_token}`,
+      rawUrl:   `${baseUrl}/p/${paste.share_token}/raw`
+    }
+  });
+});
+
+router.patch('/:id', requireAuth, (req, res) => {
+  const paste = getPasteById(req.params.id);
+  if (!paste) return res.status(404).json({ error: 'Paste not found' });
+
+  const { title, content, language, expires_in } = req.body;
+  if (content !== undefined && !content.trim()) return res.status(400).json({ error: 'Content cannot be empty' });
+
+  let expires_at = paste.expires_at;
+  if (expires_in !== undefined) {
+    if (expires_in === 'never' || !expires_in) {
+      expires_at = null;
+    } else {
+      const ms = parseDuration(expires_in);
+      expires_at = ms ? Date.now() + ms : null;
+    }
+  }
+
+  updatePaste(paste.id, {
+    title:      title      !== undefined ? (title.trim() || null) : paste.title,
+    content:    content    !== undefined ? content.trim()          : paste.content,
+    language:   language   !== undefined ? language                : paste.language,
+    expires_at
+  });
+
+  res.json({ success: true });
 });
 
 router.delete('/:id', requireAuth, (req, res) => {
